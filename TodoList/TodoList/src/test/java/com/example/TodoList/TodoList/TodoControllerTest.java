@@ -4,6 +4,8 @@ import com.example.TodoList.TodoList.controller.TodoController;
 import com.example.TodoList.TodoList.dto.TodoDto;
 import com.example.TodoList.TodoList.model.Task;
 import com.example.TodoList.TodoList.service.TodoAppService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,7 +37,7 @@ public class TodoControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-    @Autowired
+
     @MockBean
     private TodoAppService todoAppService;
 
@@ -51,7 +53,7 @@ public class TodoControllerTest {
     }
 
     @Test
-    public void testGetAllTasks() {
+    public void testGetAllTasks() throws Exception {
 
         Task task1 = new Task();
         task1.setId(1);
@@ -65,10 +67,12 @@ public class TodoControllerTest {
         List<Task> tasks = Arrays.asList(task1, task2);
         when(todoAppService.getAllTodos()).thenReturn(tasks);
 
-        ResponseEntity<List<Task>> response = todoController.getAllTasks();
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/todo"))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].id").value(task1.getId()))
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].description").value(task1.getDescription()))
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].completion_status").value(task1.getCompletion_status()));
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(tasks, response.getBody());
     }
 
     @Test
@@ -80,14 +84,9 @@ public class TodoControllerTest {
                 .completion_status("Completed")
                 .build();
 
-//        when(todoAppService.getTodoById(taskId)).thenReturn(Optional.of(task));
-//
-//        ResponseEntity<Optional<Task>> response = todoController.getTaskById(taskId);
-//
-//        assertEquals(HttpStatus.OK, response.getStatusCode());
-//        assertEquals(task, response.getBody().get());
+        when(todoAppService.getTodoById(taskId)).thenReturn(Optional.of(task));
 
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/todo/1")
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/todo/1")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(MockMvcResultMatchers.status().isOk())
                 .andExpect(MockMvcResultMatchers.jsonPath("$.id").value(task.getId()))
@@ -96,7 +95,7 @@ public class TodoControllerTest {
     }
 
     @Test
-    public void testCreateTask() {
+    public void testCreateTask() throws Exception {
         TodoDto requestDto = TodoDto.builder()
                 .id(3)
                 .description("Task 3")
@@ -104,18 +103,16 @@ public class TodoControllerTest {
                 .build();
 
         TodoDto createdTask = new TodoDto();
-            createdTask.setId(3);
-            createdTask.setDescription("Task 3");
-            createdTask.setCompletion_status("Completed");
+        createdTask.setId(3);
+        createdTask.setDescription("Task 3");
+        createdTask.setCompletion_status("Completed");
 
         when(todoAppService.createTodo(requestDto)).thenReturn(createdTask);
 
-        ResponseEntity<TodoDto> response = todoController.createTask(requestDto);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(requestDto.getId(), response.getBody().getId());
-        assertEquals(requestDto.getDescription(), response.getBody().getDescription());
-        assertEquals(requestDto.getCompletion_status(), response.getBody().getCompletion_status());
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/todo/createTask")
+                        .content("{ \"id\": 3, \"description\": \"Task 3\", \"completion_status\": \"Completed\" }")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isCreated());
 
     }
 
@@ -124,8 +121,8 @@ public class TodoControllerTest {
 
         TodoDto requestDto = TodoDto.builder()
                 .id(3)
-                .description("Task 3")
-                .completion_status("Completed")
+                .description("Updated Task")
+                .completion_status("InComplete")
                 .build();
 
         TodoDto updatedTask = TodoDto.builder()
@@ -136,25 +133,31 @@ public class TodoControllerTest {
 
         when(todoAppService.updateTodo(requestDto)).thenReturn(updatedTask);
 
-//        mockMvc.perform(MockMvcRequestBuilders.put("/api/todo/updateTask")
-//                        .content("{ \"id\": 3, \"description\": \"Task 3\", \"completion_status\": \"Completed\" }")
-//                        .contentType(MediaType.APPLICATION_JSON))
-//                .andExpect(MockMvcResultMatchers.status().isOk())
-//                .andExpect(MockMvcResultMatchers.jsonPath("$.id").value(updatedTask.getId()))
-//                .andExpect(MockMvcResultMatchers.jsonPath("$.description").value(updatedTask.getDescription()))
-//                .andExpect(MockMvcResultMatchers.jsonPath("$.completion_status").value(updatedTask.getCompletion_status()));
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("id", updatedTask.getId());
+        jsonObject.put("description", updatedTask.getDescription());
+        jsonObject.put("completion_status", updatedTask.getCompletion_status());
+
+
+        mockMvc.perform(MockMvcRequestBuilders.put("/api/v1/todo/updateTask")
+                        .content(String.valueOf(jsonObject))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.id").value(updatedTask.getId()))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.description").value(updatedTask.getDescription()))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.completion_status").value(updatedTask.getCompletion_status()));
     }
 
 
     @Test
-    public void testDeleteTask() {
+    public void testDeleteTask() throws Exception {
         int taskId = 3;
         String successMessage = "Task deleted successfully";
 
         when(todoAppService.deleteTodo(taskId)).thenReturn(successMessage);
 
-        String response = todoController.deleteTask(taskId);
-
-        assertEquals(successMessage, response);
+        mockMvc.perform(MockMvcRequestBuilders.delete("/api/v1/todo/{id}", taskId))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().string(successMessage));
     }
 }

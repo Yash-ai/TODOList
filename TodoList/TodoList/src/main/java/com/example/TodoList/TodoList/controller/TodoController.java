@@ -6,6 +6,7 @@ import com.example.TodoList.TodoList.model.Task;
 import com.example.TodoList.TodoList.service.TodoAppService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 @Slf4j
 public class TodoController {
@@ -33,16 +34,17 @@ public class TodoController {
 
     @PostMapping("/todo/createTask")
     public ResponseEntity<TodoDto> createTask(@RequestBody TodoDto requestDto){
-        return ResponseEntity.ok(todoAppService.createTodo(requestDto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(todoAppService.createTodo(requestDto));
     }
 
     @PutMapping("/todo/updateTask")
     public ResponseEntity<TodoDto> updateTask(@RequestBody TodoDto requestDto){
-        return ResponseEntity.ok(todoAppService.updateTodo(requestDto));
+        return ResponseEntity.status(HttpStatus.OK).body(todoAppService.updateTodo(requestDto));
     }
 
     @DeleteMapping("/todo/{id}")
     public String deleteTask(@PathVariable("id") int id){
+
         return todoAppService.deleteTodo(id);
     }
 
